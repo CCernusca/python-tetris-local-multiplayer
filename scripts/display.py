@@ -10,6 +10,6 @@ def display_game(display: pg.Surface, game: TetrisGame) -> None:
     display.fill((0, 0, 0))
     for y in range(tile_height):
         for x in range(tile_width):
-            color = COLORS[int(game.board[y][x])]
+            color = COLORS[game.board[y][x]]
             pg.draw.rect(display, color, (x * width_tile, y * height_tile, width_tile, height_tile))
     pg.display.update()

@@ -40,7 +40,11 @@ if __name__ == '__main__':
                     game.move_down()
                 if event.key == pg.K_UP:
                     game.rotate()
+                if event.key == pg.K_SPACE:
+                    game.spawn_piece()
     
         display.display_game(screen, game)
+
+        print(set(game.board.flatten()))
 
         clock.tick(60)
