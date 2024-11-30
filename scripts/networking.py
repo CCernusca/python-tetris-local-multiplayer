@@ -42,8 +42,6 @@ def start_invitation_listener():
 				print(f"Received invitation from {ip}")
 				global current_invitations
 				current_invitations = {ip: conn}
-
-				answer_invitations()
 	
 	threading.Thread(target=invite_listener).start()
 
@@ -67,6 +65,9 @@ class Lobby:
 		print(f"Created lobby with owner {owner_ip}")
 	
 	def invite_ip(self, ip: str):
+		if ip in self.player_ips:
+			print(f"{ip} is already in the lobby")
+			return
 		print(f"Inviting {ip} to the lobby...")
 		sock = establish_connection(ip)
 		if sock is not None:
@@ -97,11 +98,18 @@ class Lobby:
 			sys.exit()
 			return
 
+		if cmd[0] == "invitations":
+			answer_invitations()
+			return
+
 		if self.owner_ip == get_own_ip():
 			if cmd[0] == "invite":
 				self.invite_ip(cmd[1])
 			elif cmd[0] == "remove":
 				self.remove_ip(cmd[1])
+			elif cmd[0] == "list":
+				for ip in self.player_ips:
+					print(ip)
 			elif cmd[0] == "start":
 				...
 			else:
