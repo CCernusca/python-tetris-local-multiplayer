@@ -87,7 +87,10 @@ class Lobby:
 			self.sockets.pop(ip)
 	
 	def command(self):
-		cmd = input("> ").split()
+		cmd = list(input("> ").split())
+
+		if len(cmd) == 0:
+			return
 		
 		if cmd[0] == "leave":
 			print("Leaving...")
@@ -101,8 +104,6 @@ class Lobby:
 				self.remove_ip(cmd[1])
 			elif cmd[0] == "start":
 				...
-			elif cmd[0] == "":
-				pass
 			else:
 				print("Invalid command")
 		else:
