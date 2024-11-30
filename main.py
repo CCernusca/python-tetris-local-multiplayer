@@ -8,16 +8,19 @@ TILE_DISPLAY_SIZE = 30
 
 UPDATE_FREQUENCY_CHANGE_FACTOR = 1.5
 
-def query_opponent():
-    opponent_ip = input("Enter the IP-Address of your opponent: ")
-    net.establish_connection(opponent_ip)
-
 if __name__ == '__main__':
     print(f"Your IP-Address: {net.get_own_ip()}")
+
+    # Networking
     
-    # game_socket = None
-    # while not game_socket:
-    #     game_socket = query_opponent()
+    net.start_invitation_listener()
+
+    lobby = net.Lobby(net.get_own_ip())
+    
+    while True:
+        lobby.command()
+
+    # Game
 
     game = tetris.TetrisGame()
     game.update_frequency = 5
