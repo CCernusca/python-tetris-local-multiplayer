@@ -8,8 +8,6 @@ TILE_DISPLAY_SIZE = 30
 
 UPDATE_FREQUENCY_CHANGE_FACTOR = 1.5
 
-debug = False
-
 def query_opponent():
     opponent_ip = input("Enter the IP-Address of your opponent: ")
     net.establish_connection(opponent_ip)
@@ -24,9 +22,12 @@ if __name__ == '__main__':
     game = tetris.TetrisGame()
     game.update_frequency = 5
 
+    games_display = display.GameDisplay(4, tetris.BOARD_SIZE)
+    games_display.init_sprites()
+
     pg.init()
     pg.display.set_caption('Tetris')
-    screen = pg.display.set_mode((game.board.shape[1] * TILE_DISPLAY_SIZE, game.board.shape[0] * TILE_DISPLAY_SIZE))
+    screen = pg.display.set_mode((1280, 720), pg.RESIZABLE)
     clock = pg.time.Clock()
     dt = 0
 
@@ -41,8 +42,8 @@ if __name__ == '__main__':
                 if event.key == pg.K_ESCAPE:
                     running = False
                 if event.key == pg.K_o:
-                    debug = not debug
-                    game.debug = debug
+                    game.debug = not game.debug
+                    games_display.debug = not games_display.debug
                 if event.key == pg.K_LEFT:
                     if game.current_piece_id is not None:
                         game.move_piece(game.current_piece_id, (0, -1))
@@ -69,6 +70,7 @@ if __name__ == '__main__':
 
         game.update(dt)
     
-        display.display_game(screen, game, debug)
+        games_display.display_game(0, game)
+        games_display.update_screen(screen)
 
         dt = clock.tick(60) / 1000
