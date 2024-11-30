@@ -4,6 +4,10 @@ import scripts.tetris as tetris
 import scripts.display as display
 import pygame as pg
 
+TILE_DISPLAY_SIZE = 30
+
+debug = False
+
 def query_opponent():
     opponent_ip = input("Enter the IP-Address of your opponent: ")
     net.establish_connection(opponent_ip)
@@ -16,11 +20,13 @@ if __name__ == '__main__':
     #     game_socket = query_opponent()
 
     game = tetris.TetrisGame()
+    game.update_frequency = 5
 
     pg.init()
     pg.display.set_caption('Tetris')
-    screen = pg.display.set_mode((400, 800))
+    screen = pg.display.set_mode((game.board.shape[1] * TILE_DISPLAY_SIZE, game.board.shape[0] * TILE_DISPLAY_SIZE))
     clock = pg.time.Clock()
+    dt = 0
 
     running = True
 
@@ -32,19 +38,29 @@ if __name__ == '__main__':
             elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     running = False
+                if event.key == pg.K_o:
+                    debug = not debug
+                    game.debug = debug
                 if event.key == pg.K_LEFT:
-                    game.move_left()
+                    if game.current_piece_id is not None:
+                        game.move_piece(game.current_piece_id, (0, -1))
                 if event.key == pg.K_RIGHT:
-                    game.move_right()
+                    if game.current_piece_id is not None:
+                        game.move_piece(game.current_piece_id, (0, 1))
                 if event.key == pg.K_DOWN:
-                    game.move_down()
+                    if game.current_piece_id is not None:
+                        game.rotate_piece(game.current_piece_id, 1)
                 if event.key == pg.K_UP:
-                    game.rotate()
+                    if game.current_piece_id is not None:
+                        game.rotate_piece(game.current_piece_id, -1)
                 if event.key == pg.K_SPACE:
-                    game.spawn_piece()
+                    if game.current_piece_id is not None:
+                        game.hard_drop(game.current_piece_id)
+                if event.key == pg.K_RETURN:
+                    game.start()
+
+        game.update(dt)
     
-        display.display_game(screen, game)
+        display.display_game(screen, game, debug)
 
-        print(set(game.board.flatten()))
-
-        clock.tick(60)
+        dt = clock.tick(60) / 1000
