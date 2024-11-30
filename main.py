@@ -6,6 +6,8 @@ import pygame as pg
 
 TILE_DISPLAY_SIZE = 30
 
+UPDATE_FREQUENCY_CHANGE_FACTOR = 1.5
+
 debug = False
 
 def query_opponent():
@@ -58,6 +60,12 @@ if __name__ == '__main__':
                         game.hard_drop(game.current_piece_id)
                 if event.key == pg.K_RETURN:
                     game.start()
+                if event.key == pg.K_HASH:
+                    game.resume() if game.stopped else game.stop()
+                if event.key == pg.K_PLUS:
+                    game.change_update_frequency(UPDATE_FREQUENCY_CHANGE_FACTOR)
+                if event.key == pg.K_MINUS:
+                    game.change_update_frequency(1 / UPDATE_FREQUENCY_CHANGE_FACTOR)
 
         game.update(dt)
     

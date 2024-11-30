@@ -17,6 +17,7 @@ def color_sprite(sprite: pg.Surface, color: list[int]) -> pg.Surface:
 colored_tiles = {
     color: color_sprite(raw_tile, color) for color in COLORS
 }
+colored_tiles[(0, 0, 0)] = color_sprite(raw_tile, (0, 0, 0))
 
 pg.quit()
 
@@ -34,17 +35,15 @@ def display_game(display: pg.Surface, game: TetrisGame, show_ids: bool = False) 
         for x in range(tile_width):
             tile_id = game.board[y][x]
             
-            if tile_id != 0:
-                # Draw the tile
-                color = game.pieces[tile_id]["color"] if tile_id > 0 else (0, 0, 0)
-                # pg.draw.rect(display, color, (x * width_tile, y * height_tile, width_tile, height_tile))
-                display.blit(pg.transform.scale(colored_tiles[color], (width_tile, height_tile)), pg.Rect((x * width_tile, y * height_tile, width_tile, height_tile)))
-                
-                if show_ids:
-                    # Draw id
-                    text_surface = font.render(str(tile_id), True, (255, 255, 255))  # White text
-                    text_rect = text_surface.get_rect(center=(x * width_tile + width_tile // 2,
-                                                            y * height_tile + height_tile // 2))
-                    display.blit(text_surface, text_rect)
+            # Draw the tile
+            color = game.pieces[tile_id]["color"] if tile_id > 0 else (0, 0, 0)
+            display.blit(pg.transform.scale(colored_tiles[color], (width_tile, height_tile)), pg.Rect((x * width_tile, y * height_tile, width_tile, height_tile)))
+            
+            if show_ids:
+                # Draw id
+                text_surface = font.render(str(tile_id), True, (255, 255, 255))  # White text
+                text_rect = text_surface.get_rect(center=(x * width_tile + width_tile // 2,
+                                                        y * height_tile + height_tile // 2))
+                display.blit(text_surface, text_rect)
 
     pg.display.update()

@@ -46,6 +46,7 @@ class TetrisGame:
         self.debug = debug
         self.hard_drop_pieces = []
         self.time_since_last_update = 0
+        self.stopped = False
     
     def check_overlap(self, piece, offset):
         row_offset, col_offset = offset
@@ -69,13 +70,14 @@ class TetrisGame:
         while piece_id in self.pieces:
             piece_id += 1
         piece = np.asarray(PIECES[np.random.randint(0, len(PIECES))])
-        spawn_x = 0
+        spawn_positions = [x for x in range(self.board.shape[1] - piece.shape[1] + 1)]
+        np.random.shuffle(spawn_positions)
         while True:
-            if spawn_x > self.board.shape[1] - piece.shape[1]:
+            if len(spawn_positions) < 1:
                 raise Exception("Game over")
+            spawn_x = spawn_positions.pop()
             if not self.check_overlap(piece, (0, spawn_x)):
                 break
-            spawn_x += 1
             
         self.board[0:piece.shape[0], spawn_x:spawn_x + piece.shape[1]][self.board[0:piece.shape[0], spawn_x:spawn_x + piece.shape[1]] == 0] = piece[self.board[0:piece.shape[0], spawn_x:spawn_x + piece.shape[1]] == 0] * piece_id
         self.current_piece_id = piece_id
@@ -208,6 +210,7 @@ class TetrisGame:
             print("Game already started")
 
     def update(self, dt: float):
+        if self.stopped: return
         self.time_since_last_update += dt
         if self.time_since_last_update > 1 / self.update_frequency:
             self.time_since_last_update = 0
@@ -220,3 +223,15 @@ class TetrisGame:
                 self.spawn_piece()
             
             self.remove_full_rows()
+    
+    def stop(self):
+        if self.debug: print("Game stopped")
+        self.stopped = True
+    
+    def resume(self):
+        if self.debug: print("Game resumed")
+        self.stopped = False
+    
+    def change_update_frequency(self, factor: int):
+        if self.debug: print(f"Update frequency changed by {factor} to {self.update_frequency * factor}")
+        self.update_frequency *= factor
