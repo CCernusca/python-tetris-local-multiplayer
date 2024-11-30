@@ -1,10 +1,15 @@
-# python-tetris-local-multiplayer
+# python-tetris-multiplayer
 
 **Description**
-Tetris with local multiplayer, written in Python.
+
+Tetris with multiplayer, written in Python.
+Players play against each other by influencing their games during their own game.
+Players can play together be inviting each other in lobbies.
 
 **Used Language**
+
 Python
 
 **Used modules**
-pygame, socket, threading
+
+pygame, socket, threading, numpy
