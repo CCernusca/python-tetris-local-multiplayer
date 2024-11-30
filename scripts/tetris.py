@@ -44,7 +44,8 @@ class TetrisGame:
         self.current_piece_rotation = 0
         self.pieces = {}
         self.debug = debug
-        self.hard_drop_pieces = []
+        self.hard_drop = False
+        self.hard_drop_factor = 5
         self.time_since_last_update = 0
         self.stopped = False
     
@@ -121,7 +122,7 @@ class TetrisGame:
         return collisions
 
     def drop_piece(self, piece_id: int):
-        movement = 5 if piece_id in self.hard_drop_pieces else 1
+        movement = 1
         while self.move_piece(piece_id, (movement, 0)) != [] and movement > 0:
             movement -= 1
     
@@ -136,11 +137,8 @@ class TetrisGame:
             self.board[piece_pos[0]:piece_pos[0] + rotated_piece.shape[0], piece_pos[1]:piece_pos[1] + rotated_piece.shape[1]][np.where(rotated_piece > 0)] = piece_id
         return collisions
     
-    def hard_drop(self, piece_id: int):
-        self.hard_drop_pieces.append(piece_id)
-    
     def check_full_row(self, row: int):
-        return all(self.board[row, :] != 0)
+        return all(self.board[row, :] != 0) and not any([self.is_airborne(piece_id) for piece_id in self.board[row, :].tolist()])
 
     def remove_full_rows(self):
         for row in range(len(self.board)):
@@ -212,13 +210,11 @@ class TetrisGame:
     def update(self, dt: float):
         if self.stopped: return
         self.time_since_last_update += dt
-        if self.time_since_last_update > 1 / self.update_frequency:
+        if self.time_since_last_update > 1 / (self.update_frequency * (self.hard_drop_factor if self.hard_drop else 1)):
             self.time_since_last_update = 0
             if self.current_piece_id is not None and self.debug: print(f"Current piece {self.current_piece_id} at {self.pieces[self.current_piece_id]['position']}")
             for piece_id in self.pieces:
                 self.drop_piece(piece_id)
-                if piece_id in self.hard_drop_pieces and not self.is_airborne(piece_id):
-                    self.hard_drop_pieces.remove(piece_id)
             if self.check_collisions_move(self.current_piece_id, (1, 0)):
                 self.spawn_piece()
             
