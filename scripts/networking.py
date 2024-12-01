@@ -414,7 +414,7 @@ def start_manager():
 					elif request.decode().startswith("STATE"):
 						info = json.loads(request.decode().strip("STATE"))
 						print(info)
-						games_display.display_game(tetris_players[info["player"]], info["board"], info["pieces"])
+						games_display.display_game(tetris_players[info["player"]], np.array(info["board"]), {info["pieces"][k]: {"color": v["color"], "position": np.array(v["position"]), "piece": np.array(v["piece"])} for k, v in info["pieces"].items()})
 					
 					else:
 						print(f"\rUnknown request {request.decode()} from host\n> ", end="")
