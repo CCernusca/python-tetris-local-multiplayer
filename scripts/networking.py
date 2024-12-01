@@ -6,7 +6,8 @@ import json
 
 PORT = 33333
 
-current_invitations = {}
+current_invitation = {}
+open_invitations = {}
 
 host = None
 players = {}
@@ -49,9 +50,9 @@ def start_invitation_listener():
 				conn, addr = s.accept()
 				if conn.recv(1024).decode() == "INVITE":
 					ip = addr[0]
-					print(f"\033[K Received invitation from {ip}\n> ", end="")
-					global current_invitations
-					current_invitations = {ip: conn}
+					print(f"\rReceived invitation from {ip}\n> ", end="")
+					global current_invitation
+					current_invitation = {ip: conn}
 			except socket.timeout:
 				continue
 		s.close()
@@ -65,9 +66,9 @@ def start_invitation_listener():
 	return listener
 
 def answer_invitations():
-	global current_invitations
-	if current_invitations:
-		ip, sock = current_invitations.popitem()
+	global current_invitation
+	if current_invitation:
+		ip, sock = current_invitation.popitem()
 		if input(f"Accept invitation from {ip}? (y/n): ").lower() == "y":
 			sock.send("JOIN".encode())
 			global host, players
@@ -86,7 +87,7 @@ def answer_invitations():
 		else:
 			sock.send("DECLINE".encode())
 			sock.close()
-		current_invitations = ""
+		current_invitation = ""
 
 def send_all(message: str):
 	for player in players:
@@ -101,7 +102,7 @@ def send_player(player, message: str):
 	if player not in players:
 		print(f"{player} is not in the party")
 	else:
-		players[player]["socket"].send(message.encode())
+		players[player].send(message.encode())
 
 def invite_player(ip):
 	sock = establish_connection(ip)
@@ -110,10 +111,11 @@ def invite_player(ip):
 		print(f"Invited {ip}")
 	else:
 		print(f"Failed to invite {ip}")
+	open_invitations[ip] = sock
 
 def kick_player(ip):
 	send_player(ip, "KICK")
-	players[ip]["socket"].close()
+	players[ip].close()
 	players.pop(ip)
 	print(f"Kicked {ip}")
 
@@ -125,11 +127,12 @@ def create_party():
 	print("Party created")
 
 def dissolve_party():
+	global host, players
+	send_all("DISSOLVE")
 	for player in players:
 		players[player].close()
 	players = None
 	stop_party_manager()
-	send_all("DISSOLVE")
 	print("Party dissolved")
 
 def query_action():
@@ -155,7 +158,7 @@ def query_action():
 	
 	# Answer invitations
 	elif action[0] == "invitations":
-		if current_invitations:
+		if current_invitation:
 			answer_invitations()
 		else:
 			print("No invitations")
@@ -184,6 +187,8 @@ def query_action():
 					kick_player(action[1])
 			except IndexError:
 				print("Missing IP address")
+		else:
+			print(f"Only the host ({host['ip']}) can kick players")
 	
 	# List players
 	elif action[0] == "list":
@@ -208,25 +213,33 @@ def start_party_manager():
 	def manage_party():
 		global host, players
 		while not stop_manager.is_set():
-			if host is None:
-				for player in players:
-					socket = players[player]
+			for player in players:
+				socket = players[player]
+				request = socket.recv(1024)
+
+				if request.decode() == "LEAVE":
+					socket.close()
+					players.pop(socket.getpeername()[0])
+					print(f"{player} left party")
+				
+				elif request.decode() == "LIST":
+					info = {"host": get_own_ip(), "players": list(players.keys())}
+					socket.send(json.dumps(info).encode())
+				
+				else:
+					print(f"Unknown request {request.decode()} from {player}")
+			
+			for invitation in open_invitations:
+				socket = open_invitations[invitation]
+				if socket is not None:
 					request = socket.recv(1024)
-
-					if request.decode() == "LEAVE":
+					if request.decode() == "DECLINE":
+						print(f"{invitation} declined invitation")
 						socket.close()
-						players.pop(socket.getpeername()[0])
-						print(f"{player} left party")
-					
-					elif request.decode() == "LIST":
-						info = {"host": get_own_ip(), "players": players.keys()}
-						socket.send(json.dumps(info).encode())
-					
-					else:
-						print(f"Unknown request {request.decode()} from {player}")
-
-			else:
-				print("You are not the host")
+						open_invitations.pop(invitation)
+					elif request.decode() == "JOIN":
+						print(f"{invitation} joined party")
+						players[invitation] = socket
 		
 		print("Party manager stopped")
 	
