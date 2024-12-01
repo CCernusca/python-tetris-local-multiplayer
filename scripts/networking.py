@@ -12,6 +12,9 @@ open_invitations = {}
 host = None
 players = {}
 
+to_kick = []
+to_join = []
+
 running = True
 stop_listener = threading.Event()
 stop_manager = threading.Event()
@@ -116,7 +119,8 @@ def invite_player(ip):
 def kick_player(ip):
 	send_player(ip, "KICK")
 	players[ip].close()
-	players.pop(ip)
+	global to_kick
+	to_kick.append(ip)
 	print(f"Kicked {ip}")
 
 def create_party():
@@ -127,12 +131,12 @@ def create_party():
 	print("Party created")
 
 def dissolve_party():
+	stop_party_manager()
 	global host, players
 	send_all("DISSOLVE")
 	for player in players:
 		players[player].close()
 	players = None
-	stop_party_manager()
 	print("Party dissolved")
 
 def query_action():
@@ -157,7 +161,7 @@ def query_action():
 			print(f"Only the host ({host["ip"]}) can invite players")
 	
 	# Answer invitations
-	elif action[0] == "invitations":
+	elif action[0] == "invitation":
 		if current_invitation:
 			answer_invitations()
 		else:
@@ -215,31 +219,36 @@ def start_party_manager():
 		while not stop_manager.is_set():
 			for player in players:
 				socket = players[player]
-				request = socket.recv(1024)
+				try:
+					request = socket.recv(1024)
 
-				if request.decode() == "LEAVE":
-					socket.close()
-					players.pop(socket.getpeername()[0])
-					print(f"{player} left party")
-				
-				elif request.decode() == "LIST":
-					info = {"host": get_own_ip(), "players": list(players.keys())}
-					socket.send(json.dumps(info).encode())
-				
-				else:
-					print(f"Unknown request {request.decode()} from {player}")
+					if request.decode() == "LEAVE":
+						socket.close()
+						global to_kick
+						to_kick.append(player)
+						print(f"{player} left party")
+					
+					elif request.decode() == "LIST":
+						info = {"host": get_own_ip(), "players": list(players.keys())}
+						socket.send(json.dumps(info).encode())
+					
+					else:
+						print(f"Unknown request {request.decode()} from {player}")
+				except:
+					print(f"Connection with {player} closed")
 			
 			for invitation in open_invitations:
 				socket = open_invitations[invitation]
 				if socket is not None:
 					request = socket.recv(1024)
 					if request.decode() == "DECLINE":
-						print(f"{invitation} declined invitation")
+						print(f"\r{invitation} declined invitation\n> ", end="")
 						socket.close()
 						open_invitations.pop(invitation)
 					elif request.decode() == "JOIN":
-						print(f"{invitation} joined party")
-						players[invitation] = socket
+						print(f"\r{invitation} joined party\n> ", end="")
+						global to_join
+						to_join.append((invitation, socket))
 		
 		print("Party manager stopped")
 	
@@ -263,8 +272,19 @@ if __name__ == "__main__":
 	create_party()
 
 	while running:
+
+		for ip in to_kick:
+			players.pop(ip)
+		for ip, sock in to_join:
+			players[ip] = sock
+		
 		# Do actions
 		query_action()
+
+		for ip in to_kick:
+			players.pop(ip)
+		for ip, sock in to_join:
+			players[ip] = sock
 
 	listener.join()
 
