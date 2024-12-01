@@ -1,5 +1,6 @@
 
 import pygame as pg
+import numpy as np
 from scripts.tetris import TetrisGame, COLORS
 
 SPRITES_PATH = "assets/sprites/"
@@ -30,10 +31,10 @@ class GameDisplay:
 
         pg.quit()
 
-    def display_game(self, display_index: int, game: TetrisGame) -> None:
+    def display_game(self, display_index: int, game_board: np.ndarray, game_pieces: dict) -> None:
         if self.debug: print(f"Displaying game {display_index}")
 
-        tile_height, tile_width = game.board.shape
+        tile_height, tile_width = game_board.shape
         px_width, px_height = self.game_displays[display_index].get_size()
         width_tile = px_width // tile_width
         height_tile = px_height // tile_height
@@ -44,10 +45,10 @@ class GameDisplay:
 
         for y in range(tile_height):
             for x in range(tile_width):
-                tile_id = game.board[y][x]
+                tile_id = game_board[y][x]
                 
                 # Draw the tile
-                color = game.pieces[tile_id]["color"] if tile_id > 0 else (0, 0, 0)
+                color = game_pieces[tile_id]["color"] if tile_id > 0 else (0, 0, 0)
                 self.game_displays[display_index].blit(pg.transform.scale(self.colored_tiles[color], (width_tile, height_tile)), pg.Rect((x * width_tile, y * height_tile, width_tile, height_tile)))
                 
                 if self.debug:

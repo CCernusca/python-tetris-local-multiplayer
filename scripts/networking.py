@@ -4,6 +4,7 @@ import threading
 import time
 import json
 import pygame as pg
+import numpy as np
 import scripts.tetris as tetris
 import scripts.display as display
 
@@ -232,7 +233,11 @@ def start_tetris_game():
 	game = tetris.TetrisGame()
 	game.update_frequency = 5
 
-	games_display = display.GameDisplay(4, tetris.BOARD_SIZE)
+	global tetris_players, games_display
+	tetris_players = {ip: i + 1 for i, ip in enumerate(players.keys())}
+	tetris_players[get_own_ip()] = 0
+
+	games_display = display.GameDisplay(len(tetris_players), tetris.BOARD_SIZE)
 	games_display.init_sprites()
 
 	pg.init()
@@ -278,13 +283,23 @@ def start_tetris_game():
 					game.hard_drop = False
 
 		game.update(dt)
+
+		send_game_state(game.board, game.pieces)
 		
-		games_display.display_game(0, game)
+		games_display.display_game(0, game.board, game.pieces)
 		games_display.update_screen(screen)
 
 		dt = clock.tick(60) / 1000
 	
 	pg.quit()
+
+def send_game_state(game_board: np.ndarray, game_pieces: dict):
+	game_board = list(game_board.tolist())
+	game_pieces = {k: {"color": v["color"], "position": list(v["position"].tolist()), "piece": list(v["piece"].tolist())} for k, v in game_pieces.items()}
+	if host is None:
+		send_all("STATE" + json.dumps({"player": get_own_ip(), "board": game_board, "pieces": game_pieces}))
+	else:
+		send_all("STATE" + json.dumps({"player": get_own_ip(), "board": game_board, "pieces": game_pieces}))
 
 def start_manager():
 	global stop_manager
@@ -309,6 +324,12 @@ def start_manager():
 							elif request.decode() == "LIST":
 								info = {"host": get_own_ip(), "players": list(players.keys())}
 								sock.send(("LIST" + json.dumps(info)).encode())
+							
+							elif request.decode().startswith("STATE"):
+								info = json.loads(request.decode().strip("STATE"))
+								send_game_state("STATE" + json.dumps(info))
+								print(info)
+								games_display.display_game(tetris_players[info["player"]], info["board"], info["pieces"])
 							
 							else:
 								print(f"\rUnknown request {request.decode()} from {player}\n> ", end="")
@@ -377,6 +398,11 @@ def start_manager():
 					elif request.decode().startswith("LIST"):
 						info = json.loads(request.decode().strip("LIST"))
 						print(f"\rHost: {info["host"]}\n" + "\n".join([player for player in info["players"]]) + "\n> ", end="")
+							
+					elif request.decode().startswith("STATE"):
+						info = json.loads(request.decode().strip("STATE"))
+						print(info)
+						games_display.display_game(tetris_players[info["player"]], info["board"], info["pieces"])
 					
 					else:
 						print(f"\rUnknown request {request.decode()} from host\n> ", end="")
