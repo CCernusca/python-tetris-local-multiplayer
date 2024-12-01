@@ -171,7 +171,7 @@ def query_action():
 		if host is None:
 			stop_all()
 		else:
-			print("Leaving party")
+			print("\rLeaving party")
 			send_host("LEAVE")
 			create_party()
 	
@@ -246,11 +246,6 @@ def start_manager():
 							elif request.decode() == "JOIN":
 								print(f"\r{invitation} joined party\n> ", end="")
 								players[invitation] = sock
-							
-							elif request.decode().startswith("LIST"):
-								info = json.loads(request.decode().strip("LIST"))
-								print(f"Host: {info["host"]}")
-								[print(player) for player in info["players"]]
 								
 						except socket.timeout:
 							pass
@@ -261,13 +256,25 @@ def start_manager():
 				try:
 					request = host["socket"].recv(1024)
 
+					def create_party():
+						global host, players
+						host = None
+						players = {}
+						print("Party created\n> ", end="")
+
 					if request.decode() == "DISSOLVE":
 						print("\rParty dissolved by host\n> ", end="")
 						create_party()
 					
 					elif request.decode() == "KICK":
-						print("\rYou were kicked out\n> ", end="")
+						print("\rYou were kicked out")
 						create_party()
+							
+					elif request.decode().startswith("LIST"):
+						info = json.loads(request.decode().strip("LIST"))
+						print(f"\rHost: {info["host"]}\n" + "\n".join([player for player in info["players"]]) + "\n> ", end="")
+						
+						print("> ", end="")
 					
 					else:
 						print(f"\rUnknown request {request.decode()} from host\n> ", end="")
