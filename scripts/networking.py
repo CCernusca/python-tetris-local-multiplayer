@@ -1,9 +1,19 @@
 
 import socket
 import threading
-import sys
+import time
+import json
 
 PORT = 33333
+
+current_invitations = {}
+
+host = None
+players = {}
+
+running = True
+stop_listener = threading.Event()
+stop_manager = threading.Event()
 
 def get_own_ip():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -27,23 +37,32 @@ def establish_connection(ip, port=PORT):
 		print(f"An unexpected error occurred: {e}")
 	return None
 
-current_invitations = {}
-
 def start_invitation_listener():
 	def invite_listener():
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		s.bind(("0.0.0.0", PORT))
 		s.listen(1)
+		s.settimeout(0.1)
 		print(f"Listening for invitations on port {PORT}")
-		while True:
-			conn, addr = s.accept()
-			if conn.recv(1024).decode() == "INVITE":
-				ip = addr[0]
-				print(f"Received invitation from {ip}")
-				global current_invitations
-				current_invitations = {ip: conn}
+		while not stop_listener.is_set():
+			try:
+				conn, addr = s.accept()
+				if conn.recv(1024).decode() == "INVITE":
+					ip = addr[0]
+					print(f"\033[K Received invitation from {ip}\n> ", end="")
+					global current_invitations
+					current_invitations = {ip: conn}
+			except socket.timeout:
+				continue
+		s.close()
+		print("Invitation listener stopped")
 	
-	threading.Thread(target=invite_listener).start()
+	listener = threading.Thread(target=invite_listener)
+	listener.start()
+
+	time.sleep(0.1)  # Allow the thread to start before continuing
+
+	return listener
 
 def answer_invitations():
 	global current_invitations
@@ -51,68 +70,189 @@ def answer_invitations():
 		ip, sock = current_invitations.popitem()
 		if input(f"Accept invitation from {ip}? (y/n): ").lower() == "y":
 			sock.send("JOIN".encode())
+			global host, players
+
+			if host is None:
+				# Dissolve party
+				dissolve_party()
+			else:
+				# Leave party
+				print(f"Leaving party of {host['ip']}")
+				send_host("LEAVE")
+
+			# Join party of ip
+			host = {"ip": ip, "socket": sock}
+			players = None
 		else:
 			sock.send("DECLINE".encode())
 			sock.close()
 		current_invitations = ""
 
-class Lobby:
+def send_all(message: str):
+	for player in players:
+		send_player(player, message)
 
-	def __init__(self, owner_ip: str):
-		self.player_ips = [owner_ip]
-		self.owner_ip = owner_ip
-		self.sockets = {}
-		print(f"Created lobby with owner {owner_ip}")
-	
-	def invite_ip(self, ip: str):
-		if ip in self.player_ips:
-			print(f"{ip} is already in the lobby")
-			return
-		print(f"Inviting {ip} to the lobby...")
-		sock = establish_connection(ip)
-		if sock is not None:
-			sock.send("INVITE".encode())
-			if sock.recv(1024).decode() == "JOIN":
-				self.player_ips.append(ip)
-				print(f"Successfully invited {ip} to the lobby")
-				self.sockets[ip] = sock
-			else:
-				print(f"{ip} rejected the invitation")
-	
-	def remove_ip(self, ip: str):
-		if ip == get_own_ip():
-			print("You cannot remove yourself from the lobby")
+def send_host(message: str):
+	if host is None:
+		print("You are the host")
+	host["socket"].send(message.encode())
+
+def send_player(player, message: str):
+	if player not in players:
+		print(f"{player} is not in the party")
+	else:
+		players[player]["socket"].send(message.encode())
+
+def invite_player(ip):
+	sock = establish_connection(ip)
+	if sock is not None:
+		sock.send("INVITE".encode())
+		print(f"Invited {ip}")
+	else:
+		print(f"Failed to invite {ip}")
+
+def kick_player(ip):
+	send_player(ip, "KICK")
+	players[ip]["socket"].close()
+	players.pop(ip)
+	print(f"Kicked {ip}")
+
+def create_party():
+	start_party_manager()
+	global host, players
+	host = None
+	players = {}
+	print("Party created")
+
+def dissolve_party():
+	for player in players:
+		players[player].close()
+	players = None
+	stop_party_manager()
+	send_all("DISSOLVE")
+	print("Party dissolved")
+
+def query_action():
+	global host, players
+	action = input("> ").split()
+
+	# Ignore empty lines
+	if len(action) == 0:
+		return
+
+	# Invite ip to party, if you are host
+	elif action[0] == "invite":
+		if host is None:
+			try:
+				if action[1] == get_own_ip():
+					print("You cannot invite yourself")
+				else:
+					invite_player(action[1])
+			except IndexError:
+				print("Missing IP address")
 		else:
-			self.player_ips.remove(ip)
-			self.sockets[ip].close()
-			self.sockets.pop(ip)
+			print(f"Only the host ({host["ip"]}) can invite players")
 	
-	def command(self):
-		cmd = list(input("> ").split())
-
-		if len(cmd) == 0:
-			return
-		
-		if cmd[0] == "leave":
-			print("Leaving...")
-			sys.exit()
-			return
-
-		if cmd[0] == "invitations":
+	# Answer invitations
+	elif action[0] == "invitations":
+		if current_invitations:
 			answer_invitations()
-			return
-
-		if self.owner_ip == get_own_ip():
-			if cmd[0] == "invite":
-				self.invite_ip(cmd[1])
-			elif cmd[0] == "remove":
-				self.remove_ip(cmd[1])
-			elif cmd[0] == "list":
-				for ip in self.player_ips:
-					print(ip)
-			elif cmd[0] == "start":
-				...
-			else:
-				print("Invalid command")
 		else:
-			print("You are not the owner of this lobby")
+			print("No invitations")
+
+	# Leave party / stop program if you are host
+	elif action[0] == "leave":
+		if host is None:
+			global running
+			running = False
+			global stop_listener
+			stop_listener.set()
+			stop_party_manager()
+			print("Stopping program")
+		else:
+			print("Leaving party")
+			send_host("LEAVE")
+			create_party()
+	
+	# Kick player from party
+	elif action[0] == "kick":
+		if host is None:
+			try:
+				if action[1] == get_own_ip():
+					print("You cannot kick yourself")
+				else:
+					kick_player(action[1])
+			except IndexError:
+				print("Missing IP address")
+	
+	# List players
+	elif action[0] == "list":
+		if host is None:
+			print(f"Host: You ({get_own_ip()})")
+			if len(players) == 0:
+				print("No players")
+			else:
+				[print(player) for player in players]
+		else:
+			send_host("LIST")
+			info = json.loads(host["socket"].recv(1024).decode())
+			print(f"Host: {info["host"]}")
+			[print(player) for player in info["players"]]
+	
+	else:
+		print("Unknown command")
+
+def start_party_manager():
+	global stop_manager
+	stop_manager.clear()
+	def manage_party():
+		global host, players
+		while not stop_manager.is_set():
+			if host is None:
+				for player in players:
+					socket = players[player]
+					request = socket.recv(1024)
+
+					if request.decode() == "LEAVE":
+						socket.close()
+						players.pop(socket.getpeername()[0])
+						print(f"{player} left party")
+					
+					elif request.decode() == "LIST":
+						info = {"host": get_own_ip(), "players": players.keys()}
+						socket.send(json.dumps(info).encode())
+					
+					else:
+						print(f"Unknown request {request.decode()} from {player}")
+
+			else:
+				print("You are not the host")
+		
+		print("Party manager stopped")
+	
+	manager = threading.Thread(target=manage_party)
+	manager.start()
+
+	time.sleep(0.1)  # Allow the thread to start before continuing
+
+	return listener
+
+def stop_party_manager():
+	global stop_manager
+	stop_manager.set()
+
+if __name__ == "__main__":
+
+	print(f"Your IP-Address: {get_own_ip()}")
+
+	listener = start_invitation_listener()
+
+	create_party()
+
+	while running:
+		# Do actions
+		query_action()
+
+	listener.join()
+
+	print("Program stopped")
