@@ -398,6 +398,9 @@ def start_manager():
 					elif request.decode().startswith("LIST"):
 						info = json.loads(request.decode().strip("LIST"))
 						print(f"\rHost: {info["host"]}\n" + "\n".join([player for player in info["players"]]) + "\n> ", end="")
+					
+					elif request.decode() == "START":
+						start_tetris_game()
 							
 					elif request.decode().startswith("STATE"):
 						info = json.loads(request.decode().strip("STATE"))
