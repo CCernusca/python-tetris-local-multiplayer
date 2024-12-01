@@ -3,6 +3,9 @@ import socket
 import threading
 import time
 import json
+import pygame as pg
+import scripts.tetris as tetris
+import scripts.display as display
 
 PORT = 33333
 
@@ -20,9 +23,9 @@ stop_listener = threading.Event()
 stop_manager = threading.Event()
 
 def get_own_ip():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+		s.connect(("8.8.8.8", 80))
+		return s.getsockname()[0]
 
 def establish_connection(ip, port=PORT):
 	print(f"Trying to connect to {ip}:{port}...")
@@ -139,7 +142,16 @@ def dissolve_party():
 	print("Party dissolved")
 
 def query_action():
-	global host, players
+
+	global host, players, to_kick, to_join
+	
+	for ip in to_kick:
+		if ip in players:
+			players.pop(ip)
+	to_kick = []
+	for ip, sock in to_join:
+		players[ip] = sock
+	to_join = []
 	action = input("> ").split()
 
 	# Ignore empty lines
@@ -178,13 +190,16 @@ def query_action():
 	# Kick player from party
 	elif action[0] == "kick":
 		if host is None:
-			try:
-				if action[1] == get_own_ip():
-					print("You cannot kick yourself")
-				else:
-					kick_player(action[1])
-			except IndexError:
-				print("Missing IP address")
+			if action[1] in players:
+				try:
+					if action[1] == get_own_ip():
+						print("You cannot kick yourself")
+					else:
+						kick_player(action[1])
+				except IndexError:
+					print("Missing IP address")
+			else:
+				print(f"{action[1]} is not in the party")
 		else:
 			print(f"Only the host ({host['ip']}) can kick players")
 	
@@ -199,8 +214,77 @@ def query_action():
 		else:
 			send_host("LIST")
 	
+	# Start tetris game
+	elif action[0] == "start":
+		if host is None:
+			send_all("START")
+			start_tetris_game()
+		else:
+			print("Only the host can start the game")
+	
 	else:
 		print("Unknown command")
+
+def start_tetris_game():
+
+	UPDATE_FREQUENCY_CHANGE_FACTOR = 1.5
+
+	game = tetris.TetrisGame()
+	game.update_frequency = 5
+
+	games_display = display.GameDisplay(4, tetris.BOARD_SIZE)
+	games_display.init_sprites()
+
+	pg.init()
+	pg.display.set_caption('Tetris')
+	screen = pg.display.set_mode((1280, 720), pg.RESIZABLE)
+	clock = pg.time.Clock()
+	dt = 0
+
+	running = True
+
+	while running:
+
+		for event in pg.event.get():
+			if event.type == pg.QUIT:
+				running = False
+			if event.type == pg.KEYDOWN:
+				if event.key == pg.K_ESCAPE:
+					running = False
+				if event.key == pg.K_o:
+					game.debug = not game.debug
+					games_display.debug = not games_display.debug
+				if event.key == pg.K_LEFT:
+					if game.current_piece_id is not None:
+						game.move_piece(game.current_piece_id, (0, -1))
+				if event.key == pg.K_RIGHT:
+					if game.current_piece_id is not None:
+						game.move_piece(game.current_piece_id, (0, 1))
+				if event.key == pg.K_DOWN:
+					game.hard_drop = True
+				if event.key == pg.K_UP:
+					if game.current_piece_id is not None:
+						game.rotate_piece(game.current_piece_id, -1)
+				if event.key == pg.K_RETURN:
+					game.start()
+				if event.key == pg.K_HASH:
+					game.resume() if game.stopped else game.stop()
+				if event.key == pg.K_PLUS:
+					game.change_update_frequency(UPDATE_FREQUENCY_CHANGE_FACTOR)
+				if event.key == pg.K_MINUS:
+					game.change_update_frequency(1 / UPDATE_FREQUENCY_CHANGE_FACTOR)
+			if event.type == pg.KEYUP:
+				if event.key == pg.K_DOWN:
+					game.hard_drop = False
+
+		game.update(dt)
+		
+		games_display.display_game(0, game)
+		games_display.update_screen(screen)
+
+		dt = clock.tick(60) / 1000
+	
+	pg.quit()
 
 def start_manager():
 	global stop_manager
@@ -309,7 +393,7 @@ def start_manager():
 
 	time.sleep(0.1)  # Allow the thread to start before continuing
 
-	return listener
+	return manager
 
 def stop_all():
 	print("Stopping program")
@@ -328,14 +412,6 @@ if __name__ == "__main__":
 	create_party()
 
 	while running:
-
-		for ip in to_kick:
-			if ip in players:
-				players.pop(ip)
-		to_kick = []
-		for ip, sock in to_join:
-			players[ip] = sock
-		to_join = []
 		
 		# Do actions
 		query_action()
