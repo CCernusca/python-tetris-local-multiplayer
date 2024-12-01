@@ -198,9 +198,6 @@ def query_action():
 				[print(player) for player in players]
 		else:
 			send_host("LIST")
-			info = json.loads(host["socket"].recv(1024).decode())
-			print(f"Host: {info["host"]}")
-			[print(player) for player in info["players"]]
 	
 	else:
 		print("Unknown command")
@@ -212,7 +209,7 @@ def start_manager():
 		global host, players
 		while not stop_manager.is_set():
 			# Host jobs
-			if host is None:
+			if host is None and players is not None:
 				for player in players:
 					sock = players[player]
 					try:
@@ -226,7 +223,7 @@ def start_manager():
 						
 						elif request.decode() == "LIST":
 							info = {"host": get_own_ip(), "players": list(players.keys())}
-							sock.send(json.dumps(info).encode())
+							sock.send(("LIST" + json.dumps(info)).encode())
 						
 						else:
 							print(f"\rUnknown request {request.decode()} from {player}\n> ", end="")
@@ -249,13 +246,18 @@ def start_manager():
 							elif request.decode() == "JOIN":
 								print(f"\r{invitation} joined party\n> ", end="")
 								players[invitation] = sock
+							
+							elif request.decode().startswith("LIST"):
+								info = json.loads(request.decode().strip("LIST"))
+								print(f"Host: {info["host"]}")
+								[print(player) for player in info["players"]]
 								
 						except socket.timeout:
 							pass
 				open_invitations = {invitation: open_invitations[invitation] for invitation in open_invitations if open_invitations[invitation] is not None}
 			
 			# Player jobs
-			else:
+			elif host is not None:
 				try:
 					request = host["socket"].recv(1024)
 
