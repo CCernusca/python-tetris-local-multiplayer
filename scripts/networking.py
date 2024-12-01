@@ -29,6 +29,7 @@ def establish_connection(ip, port=PORT):
 	try:
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		s.connect((ip, port))
+		s.settimeout(0.1)
 		print(f"Successfully connected to {ip}:{port}")
 		return s
 	except socket.gaierror:
@@ -115,9 +116,6 @@ def invite_player(ip):
 	else:
 		print(f"Failed to invite {ip}")
 	open_invitations[ip] = sock
-
-def add_player(ip, socket):
-	to_join.append((ip, socket))
 
 def kick_player(ip):
 	send_player(ip, "KICK")
@@ -216,43 +214,64 @@ def start_manager():
 			# Host jobs
 			if host is None:
 				for player in players:
-					socket = players[player]
+					sock = players[player]
 					try:
-						request = socket.recv(1024)
+						request = sock.recv(1024)
 
 						if request.decode() == "LEAVE":
-							socket.close()
+							sock.close()
 							global to_kick
 							to_kick.append(player)
 							print(f"\r{player} left party\n> ", end="")
 						
 						elif request.decode() == "LIST":
 							info = {"host": get_own_ip(), "players": list(players.keys())}
-							socket.send(json.dumps(info).encode())
+							sock.send(json.dumps(info).encode())
 						
 						else:
 							print(f"\rUnknown request {request.decode()} from {player}\n> ", end="")
-					except:
-						print(f"\rConnection with {player} closed\n> ", end="")
+					
+					except socket.timeout:
+						pass
 				
+				global open_invitations
 				for invitation in open_invitations:
-					socket = open_invitations[invitation]
-					if socket is not None:
-						request = socket.recv(1024)
-						if request.decode() == "DECLINE":
-							print(f"\r{invitation} declined invitation\n> ", end="")
-							socket.close()
-							open_invitations.pop(invitation)
-						elif request.decode() == "JOIN":
-							print(f"\r{invitation} joined party\n> ", end="")
-							global to_join
-							to_join.append((invitation, socket))
+					sock = open_invitations[invitation]
+					if sock is not None:
+						try:
+							request = sock.recv(1024)
+
+							if request.decode() == "DECLINE":
+								print(f"\r{invitation} declined invitation\n> ", end="")
+								sock.close()
+								open_invitations[invitation] = None
+							
+							elif request.decode() == "JOIN":
+								print(f"\r{invitation} joined party\n> ", end="")
+								players[invitation] = sock
+								
+						except socket.timeout:
+							pass
+				open_invitations = {invitation: open_invitations[invitation] for invitation in open_invitations if open_invitations[invitation] is not None}
 			
 			# Player jobs
 			else:
-				request = host["socket"].recv(1024)
-				if request.decode() == "DISSOLVE":
-					create_party()
+				try:
+					request = host["socket"].recv(1024)
+
+					if request.decode() == "DISSOLVE":
+						print("\rParty dissolved by host\n> ", end="")
+						create_party()
+					
+					elif request.decode() == "KICK":
+						print("\rYou were kicked out\n> ", end="")
+						create_party()
+					
+					else:
+						print(f"\rUnknown request {request.decode()} from host\n> ", end="")
+					
+				except socket.timeout:
+					pass
 		
 		# Manager stopped, which means player is exiting program
 		dissolve_party()
@@ -277,6 +296,7 @@ if __name__ == "__main__":
 	print(f"Your IP-Address: {get_own_ip()}")
 
 	listener = start_invitation_listener()
+	manager = start_manager()
 
 	create_party()
 
@@ -293,5 +313,6 @@ if __name__ == "__main__":
 		query_action()
 
 	listener.join()
+	manager.join()
 
 	print("Program stopped")
