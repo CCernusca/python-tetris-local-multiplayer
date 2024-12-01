@@ -210,26 +210,42 @@ def start_manager():
 		while not stop_manager.is_set():
 			# Host jobs
 			if host is None and players is not None:
-				for player in players:
-					sock = players[player]
-					try:
-						request = sock.recv(1024)
+				global to_kick, to_join
+				try:
+					for player in players:
+						sock = players[player]
+						try:
+							request = sock.recv(1024)
 
-						if request.decode() == "LEAVE":
+							if request.decode() == "LEAVE":
+								sock.close()
+								to_kick.append(player)
+								print(f"\r{player} left party\n> ", end="")
+							
+							elif request.decode() == "LIST":
+								info = {"host": get_own_ip(), "players": list(players.keys())}
+								sock.send(("LIST" + json.dumps(info)).encode())
+							
+							else:
+								print(f"\rUnknown request {request.decode()} from {player}\n> ", end="")
+						
+						except socket.timeout:
+							pass
+
+						except OSError:
 							sock.close()
-							global to_kick
 							to_kick.append(player)
-							print(f"\r{player} left party\n> ", end="")
-						
-						elif request.decode() == "LIST":
-							info = {"host": get_own_ip(), "players": list(players.keys())}
-							sock.send(("LIST" + json.dumps(info)).encode())
-						
-						else:
-							print(f"\rUnknown request {request.decode()} from {player}\n> ", end="")
+				
+				except RuntimeError:
+					pass
 					
-					except socket.timeout:
-						pass
+				for ip in to_kick:
+					if ip in players:
+						players.pop(ip)
+				to_kick = []
+				for ip, sock in to_join:
+					players[ip] = sock
+				to_join = []
 				
 				global open_invitations
 				for invitation in open_invitations:
@@ -249,6 +265,10 @@ def start_manager():
 								
 						except socket.timeout:
 							pass
+
+						except OSError:
+							sock.close()
+							to_kick.append(player)
 				open_invitations = {invitation: open_invitations[invitation] for invitation in open_invitations if open_invitations[invitation] is not None}
 			
 			# Player jobs
@@ -263,7 +283,7 @@ def start_manager():
 						print("Party created\n> ", end="")
 
 					if request.decode() == "DISSOLVE":
-						print("\rParty dissolved by host\n> ", end="")
+						print("\rParty dissolved by host")
 						create_party()
 					
 					elif request.decode() == "KICK":
@@ -273,8 +293,6 @@ def start_manager():
 					elif request.decode().startswith("LIST"):
 						info = json.loads(request.decode().strip("LIST"))
 						print(f"\rHost: {info["host"]}\n" + "\n".join([player for player in info["players"]]) + "\n> ", end="")
-						
-						print("> ", end="")
 					
 					else:
 						print(f"\rUnknown request {request.decode()} from host\n> ", end="")
@@ -312,7 +330,8 @@ if __name__ == "__main__":
 	while running:
 
 		for ip in to_kick:
-			players.pop(ip)
+			if ip in players:
+				players.pop(ip)
 		to_kick = []
 		for ip, sock in to_join:
 			players[ip] = sock
