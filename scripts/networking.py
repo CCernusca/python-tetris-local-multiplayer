@@ -91,7 +91,7 @@ def answer_invitations():
 
 			# Join party of ip
 			host = {"ip": ip, "socket": sock}
-			players = None
+			players = {}
 		else:
 			sock.send("DECLINE".encode())
 			sock.close()
@@ -139,7 +139,7 @@ def dissolve_party():
 	send_all("DISSOLVE")
 	for player in players:
 		players[player].close()
-	players = None
+	players = {}
 	print("Party dissolved")
 
 def query_action():
@@ -214,7 +214,9 @@ def query_action():
 				[print(player) for player in players]
 		else:
 			send_host("LIST")
-			print(f"\rHost: {host['ip']}\n" + "\n".join([player for player in players]) + "\n> ", end="")
+			while len(players) == 0:
+				time.sleep(0.1)
+			print(f"\rHost: {host['ip']}\n" + "\n".join([player for player in players]))
 	
 	# Start tetris game
 	elif action[0] == "start":
@@ -236,6 +238,8 @@ def start_tetris_game():
 
 	if host is not None:
 		send_host("LIST")
+		while len(players) == 0:
+			time.sleep(0.1)
 
 	global tetris_players, games_display
 	tetris_players = {ip: i + 1 for i, ip in enumerate(players.keys())}
@@ -386,6 +390,7 @@ def start_manager():
 					request = host["socket"].recv(1024)
 
 					def create_party():
+						global host, players
 						host = None
 						players = {}
 						print("Party created\n> ", end="")
