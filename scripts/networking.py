@@ -243,7 +243,7 @@ def start_tetris_game():
 
 	global tetris_players, games_display
 	tetris_players = {ip: i + 1 for i, ip in enumerate(players.keys())}
-	tetris_players[get_own_ip()] = 0
+	tetris_players[get_own_ip() if host is None else host["ip"]] = 0
 
 	games_display = display.GameDisplay(len(tetris_players), tetris.BOARD_SIZE)
 	games_display.init_sprites()
@@ -405,11 +405,11 @@ def start_manager():
 							
 					elif request.decode().startswith("LIST"):
 						info = json.loads(request.decode().strip("LIST"))
-						players = info["players"]
+						players = {ip: None for ip in info["players"]}
 					
 					elif request.decode() == "START":
 						print("\rGame started\n> ", end="")
-						start_tetris_game()
+						threading.Thread(target=start_tetris_game).start()
 							
 					elif request.decode().startswith("STATE"):
 						info = json.loads(request.decode().strip("STATE"))
