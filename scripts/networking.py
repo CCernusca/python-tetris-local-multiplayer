@@ -214,6 +214,7 @@ def query_action():
 				[print(player) for player in players]
 		else:
 			send_host("LIST")
+			print(f"\rHost: {host['ip']}\n" + "\n".join([player for player in players]) + "\n> ", end="")
 	
 	# Start tetris game
 	elif action[0] == "start":
@@ -232,6 +233,9 @@ def start_tetris_game():
 
 	game = tetris.TetrisGame()
 	game.update_frequency = 5
+
+	if host is not None:
+		send_host("LIST")
 
 	global tetris_players, games_display
 	tetris_players = {ip: i + 1 for i, ip in enumerate(players.keys())}
@@ -382,7 +386,6 @@ def start_manager():
 					request = host["socket"].recv(1024)
 
 					def create_party():
-						global host, players
 						host = None
 						players = {}
 						print("Party created\n> ", end="")
@@ -397,9 +400,10 @@ def start_manager():
 							
 					elif request.decode().startswith("LIST"):
 						info = json.loads(request.decode().strip("LIST"))
-						print(f"\rHost: {info["host"]}\n" + "\n".join([player for player in info["players"]]) + "\n> ", end="")
+						players = info["players"]
 					
 					elif request.decode() == "START":
+						print("\rGame started\n> ", end="")
 						start_tetris_game()
 							
 					elif request.decode().startswith("STATE"):
