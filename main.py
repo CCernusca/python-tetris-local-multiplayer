@@ -41,7 +41,7 @@ def start():
                 if valid:
                     pg.init()
                     pg.display.set_caption("Tetris")
-                    screen = pg.display.set_mode((800, 600))
+                    screen = pg.display.set_mode((1280, 720), pg.RESIZABLE)
                     clock = pg.time.Clock()
                     dt = 0
 

@@ -14,8 +14,8 @@ class GameDisplay:
 
     def init_sprites(self) -> None:
 
-        pg.init()
-        pg.display.set_mode((0, 0))
+        # pg.init()
+        # pg.display.set_mode((0, 0))
                     
         self.raw_tile = pg.image.load(SPRITES_PATH + "tile.png").convert()
 
@@ -28,6 +28,8 @@ class GameDisplay:
             color: color_sprite(self.raw_tile, color) for color in COLORS
         }
         self.colored_tiles[(0, 0, 0)] = color_sprite(self.raw_tile, (0, 0, 0))
+
+        # pg.quit()
 
     def display_game(self, display_index: int, game_board: np.ndarray) -> None:
         if self.debug: print(f"Displaying game {display_index}")

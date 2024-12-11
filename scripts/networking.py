@@ -90,10 +90,11 @@ def start_update_listener():
 		while not stop_update_listener.is_set():
 			try:
 				conn, addr = s.accept()
-				if conn.recv(1024).decode().startswith("UPDATE"):
-					print(f"Received update from {addr[0]}")
+				message = conn.recv(1024).decode()
+				if message.startswith("UPDATE"):
+					print(f"Received update from {addr[0]}: <{message.strip('UPDATE')}>")
 					global opponent_board
-					opponent_board = decode_board(conn.recv(1024).decode().strip("UPDATE"))
+					opponent_board = decode_board(message.strip("UPDATE"))
 			except socket.timeout:
 				continue
 		s.close()
