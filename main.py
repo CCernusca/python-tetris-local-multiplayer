@@ -1,5 +1,4 @@
 
-import pygame as pg
 import scripts.networking as net
 import scripts.session as session
 
@@ -8,6 +7,10 @@ def start():
     net.start_invitation_listener()
 
     while True:
+
+        if net.current_opponent:
+            session.start_game()
+
         query = input("> ")
         if query == "":
             print(net.current_invitation)
@@ -31,12 +34,7 @@ def start():
                 net.get_current_invitation()
 
             case "accept":
-                valid = net.current_invitation
-
                 net.accept_invitation()
-
-                if valid:
-                    session.start_game()
 
             case "decline":
                 net.decline_invitation()

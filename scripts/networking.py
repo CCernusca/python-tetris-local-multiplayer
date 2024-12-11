@@ -2,10 +2,8 @@
 import socket
 import threading
 import time
-import pygame as pg
 import numpy as np
 import scripts.tetris as tetris
-import scripts.display as display
 
 INVITATION_PORT = 33333
 INVITATION_RESPONSE_PORT = 33334
@@ -65,6 +63,8 @@ def start_invitation_response_listener():
 					print(f"{addr[0]} accepted invitation")
 					conn.close()
 					start_update_listener()
+					global current_opponent
+					current_opponent = addr[0]
 					break
 				elif conn.recv(1024).decode() == "DECLINE":
 					print(f"{addr[0]} declined invitation")
