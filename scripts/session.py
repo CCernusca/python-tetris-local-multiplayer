@@ -1,4 +1,5 @@
 
+import threading
 import pygame as pg
 import scripts.networking as net
 import scripts.tetris as tetris
@@ -45,7 +46,9 @@ def start_game():
 
         game.update(dt)
 
-        net.send_update(game.board)
+        update_thread = threading.Thread(target=net.send_update, args=(game.board,))
+        update_thread.start()
+
         game_display.display_game(0, game.board)
         if net.opponent_board is not None:
             game_display.display_game(1, net.opponent_board)
