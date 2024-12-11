@@ -64,6 +64,7 @@ def start_invitation_response_listener():
 				if conn.recv(1024).decode() == "ACCEPT":
 					print(f"{addr[0]} accepted invitation")
 					conn.close()
+					start_update_listener()
 					break
 				elif conn.recv(1024).decode() == "DECLINE":
 					print(f"{addr[0]} declined invitation")
