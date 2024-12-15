@@ -20,10 +20,12 @@ def start_game():
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
+                net.stop_listeners()
                 pg.quit()
                 exit()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
+                    net.stop_listeners()
                     pg.quit()
                     exit()
                 if event.key == pg.K_LEFT:
