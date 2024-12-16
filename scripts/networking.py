@@ -190,18 +190,18 @@ def stop_listeners():
 	close_update_socket()
 
 def encode_board(board):
-	return "".join(str(x) for x in np.array(board).flatten())
+	return list(int(x) for x in np.array(board).flatten())
 
 def decode_board(board):
-	return np.array([int(x) for x in board]).reshape(*tetris.BOARD_SIZE)
+	return np.array([int(x) for x in board.strip('[').strip(']').split(', ')]).reshape(*tetris.BOARD_SIZE)
 
 def send_update(board):
 	global update_socket, current_opponent
 	if update_socket:
 		try:
 			update = encode_board(board)
+			print(f"Sending update to {current_opponent}: <{update}>")
 			update_socket.send(f"UPDATE{update}".encode())
-			print(f"Sent update to {current_opponent}: <{update}>")
 		except socket.error as e:
 			print(f"Failed to send update: {e}. Attempting to reconnect...")
 			close_update_socket()
