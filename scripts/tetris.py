@@ -219,6 +219,9 @@ class TetrisGame:
                 self.spawn_piece()
             
             self.remove_full_rows()
+
+            return True
+        return False
     
     def stop(self):
         if self.debug: print("Game stopped")

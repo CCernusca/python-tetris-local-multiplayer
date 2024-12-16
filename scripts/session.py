@@ -46,10 +46,10 @@ def start_game():
                 if event.key == pg.K_DOWN:
                     game.hard_drop = False
 
-        game.update(dt)
+        if game.update(dt):
 
-        update_thread = threading.Thread(target=net.send_update, args=(game.board,))
-        update_thread.start()
+            update_thread = threading.Thread(target=net.send_update, args=(game.board,))
+            update_thread.start()
 
         game_display.display_game(0, game.board)
         if net.opponent_board is not None:
