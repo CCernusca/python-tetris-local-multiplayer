@@ -199,8 +199,9 @@ def send_update(board):
 	global update_socket, current_opponent
 	if update_socket:
 		try:
-			update_socket.send(f"UPDATE{encode_board(board)}".encode())
-			print("Update sent successfully")
+			update = encode_board(board)
+			update_socket.send(f"UPDATE{update}".encode())
+			print(f"Sent update to {current_opponent}: <{update}>")
 		except socket.error as e:
 			print(f"Failed to send update: {e}. Attempting to reconnect...")
 			close_update_socket()
