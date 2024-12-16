@@ -162,9 +162,11 @@ def accept_invitation():
 		s.close()
 		print(f"Invitation from {current_invitation} accepted")
 		current_opponent = current_invitation
+		# Start own connection if opponent is not player, as one connection is already started in start_invitation_response_listener
+		if current_invitation != get_own_ip():
+			start_update_listener()
+			update_socket = create_update_socket(current_opponent)  # Create persistent socket
 		current_invitation = None
-		start_update_listener()
-		update_socket = create_update_socket(current_opponent)  # Create persistent socket
 	else:
 		print("No invitation")
 
