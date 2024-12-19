@@ -1,7 +1,7 @@
 
 import pygame as pg
 import numpy as np
-from scripts.tetris import TetrisGame, COLORS
+from scripts.tetris import COLORS
 
 SPRITES_PATH = "assets/sprites/"
 

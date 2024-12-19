@@ -9,7 +9,7 @@ def start_game():
 
     pg.init()
     pg.display.set_caption("Tetris")
-    screen = pg.display.set_mode((1280, 720), pg.RESIZABLE)
+    screen = pg.display.set_mode((640, 360), pg.RESIZABLE)
     clock = pg.time.Clock()
     dt = 0
 
@@ -20,10 +20,12 @@ def start_game():
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
+                net.stop_listeners()
                 pg.quit()
                 exit()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
+                    net.stop_listeners()
                     pg.quit()
                     exit()
                 if event.key == pg.K_LEFT:
@@ -44,10 +46,10 @@ def start_game():
                 if event.key == pg.K_DOWN:
                     game.hard_drop = False
 
-        game.update(dt)
+        if game.update(dt):
 
-        update_thread = threading.Thread(target=net.send_update, args=(game.board,))
-        update_thread.start()
+            update_thread = threading.Thread(target=net.send_update, args=(game.board,))
+            update_thread.start()
 
         game_display.display_game(0, game.board)
         if net.opponent_board is not None:

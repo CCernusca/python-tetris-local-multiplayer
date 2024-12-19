@@ -13,7 +13,6 @@ def start():
 
         query = input("> ")
         if query == "":
-            print(net.current_invitation)
             continue
         match(query.split()[0]):
             case "exit":
