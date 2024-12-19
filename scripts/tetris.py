@@ -114,6 +114,8 @@ class TetrisGame:
         if len(collisions) == 0:
             piece_pos = self.pieces[piece_id]["position"]
             board_area = self.board[piece_pos[0]:piece_pos[0] + self.pieces[piece_id]["piece"].shape[0], piece_pos[1]:piece_pos[1] + self.pieces[piece_id]["piece"].shape[1]]
+            if board_area.shape[1] == 3:
+                board_area = np.column_stack((board_area, np.zeros((board_area.shape[0], 1), dtype=np.uint8)))
             rotated_piece = np.rot90(board_area == piece_id, rotation % 4)
             self.board[piece_pos[0]:piece_pos[0] + rotated_piece.shape[0], piece_pos[1]:piece_pos[1] + rotated_piece.shape[1]][np.where(self.board[piece_pos[0]:piece_pos[0] + rotated_piece.shape[0], piece_pos[1]:piece_pos[1] + rotated_piece.shape[1]] == piece_id)] = 0
             self.board[piece_pos[0]:piece_pos[0] + rotated_piece.shape[0], piece_pos[1]:piece_pos[1] + rotated_piece.shape[1]][np.where(rotated_piece > 0)] = piece_id
