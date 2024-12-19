@@ -1,30 +1,12 @@
 
 import numpy as np
+import json
 
-COLORS = [
-    (255, 0, 0),
-    (0, 255, 0),
-    (0, 0, 255),
-]
+with open("assets/pieces.json") as f:
+    PIECES = json.load(f)["pieces"]
 
-PIECES = [
-    [[0, 0, 0, 0], 
-     [0, 1, 1, 0], 
-     [0, 1, 1, 0], 
-     [0, 0, 0, 0]],
-    [[0, 0, 0, 0], 
-     [1, 1, 1, 1], 
-     [0, 0, 0, 0], 
-     [0, 0, 0, 0]],
-    [[0, 0, 0, 0], 
-     [1, 1, 1, 0], 
-     [0, 0, 1, 0], 
-     [0, 0, 0, 0]],
-    [[0, 0, 0, 0], 
-     [0, 1, 1, 1], 
-     [0, 1, 0, 0], 
-     [0, 0, 0, 0]],
-]
+with open("assets/colors.json") as f:
+    COLORS = [tuple(color) for color in json.load(f)["colors"]]
 
 BOARD_SIZE = (20, 12)
 
