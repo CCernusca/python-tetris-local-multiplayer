@@ -1,7 +1,11 @@
 
 import pygame as pg
 import numpy as np
-from scripts.tetris import COLORS
+
+try:
+    from scripts.tetris import COLORS
+except ModuleNotFoundError:
+    from tetris import COLORS
 
 SPRITES_PATH = "assets/sprites/"
 

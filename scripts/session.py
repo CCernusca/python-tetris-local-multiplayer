@@ -1,9 +1,17 @@
 
 import threading
 import pygame as pg
-import scripts.networking as net
-import scripts.tetris as tetris
-import scripts.display as display
+
+try:
+    import scripts.networking as net
+    import scripts.tetris as tetris
+    import scripts.display as display
+    import scripts.invitations as inv
+except ModuleNotFoundError:
+    import networking as net
+    import tetris
+    import display
+    import invitations as inv
 
 def start_game():
 

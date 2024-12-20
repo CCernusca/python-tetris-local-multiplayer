@@ -2,7 +2,11 @@ import socket
 import threading
 import time
 import numpy as np
-import scripts.tetris as tetris
+
+try:
+	import scripts.tetris as tetris
+except ModuleNotFoundError:
+	import tetris
 
 INVITATION_PORT = 33333
 INVITATION_RESPONSE_PORT = 33334
