@@ -190,18 +190,26 @@ class TetrisGame:
             self.spawn_piece()
         else:
             print("Game already started")
+    
+    def drop_pieces(self):
+        # Sort pieces by their current height (lower pieces first)
+        for piece_id in sorted(self.pieces.keys(), key=lambda pid: self.pieces[pid]["position"][0], reverse=True):
+            self.drop_piece(piece_id)
 
     def update(self, dt: float):
-        if self.stopped: return
+        if self.stopped:
+            return
         self.time_since_last_update += dt
         if self.time_since_last_update > 1 / (self.update_frequency * (self.hard_drop_factor if self.hard_drop else 1)):
             self.time_since_last_update = 0
-            if self.current_piece_id is not None and self.debug: print(f"Current piece {self.current_piece_id} at {self.pieces[self.current_piece_id]['position']}")
-            for piece_id in self.pieces:
-                self.drop_piece(piece_id)
+            if self.current_piece_id is not None and self.debug:
+                print(f"Current piece {self.current_piece_id} at {self.pieces[self.current_piece_id]['position']}")
+
+            self.drop_pieces()
+
             if self.check_collisions_move(self.current_piece_id, (1, 0)):
                 self.spawn_piece()
-            
+
             self.remove_full_rows()
 
             return True
