@@ -2,33 +2,40 @@
 import socket
 import threading
 import time
-from queue import Queue
 
-def get_own_ip():
-	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-		s.connect(("8.8.8.8", 80))
-		return s.getsockname()[0]
+try:
+	import scripts.networking as net
+except ModuleNotFoundError:
+	import networking as net
+
+# IP addresses of all players who have sent invitations which the player has yet to answer
+invitations = set()
+# IP addresses of all players invitations have been sent to, which have not been answered yet
+open_invitations = set()
 
 class InvitationListener:
-	def __init__(self, port=33333):
+	def __init__(self, port=net.INVITATION_PORT):
 		self.port = port
 		self.stop_event = threading.Event()
-		self.invitations = Queue()  # Thread-safe queue to store incoming invitations
+		self.thread = None
 
 	def start(self):
+		if self.thread is not None:
+			print("Invitation listener already started")
+			return
 		def listener():
+			print(f"Starting invitation listener at {net.get_own_ip()}:{self.port}")
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.bind(("0.0.0.0", self.port))
 			s.listen(5)
 			s.settimeout(0.1)
-			print(f"Started invitation listener at {get_own_ip()}:{self.port}")
 			while not self.stop_event.is_set():
 				try:
 					conn, addr = s.accept()
 					if conn.recv(1024).decode() == "INVITE":
 						ip = addr[0]
 						print(f"Received invitation from {ip}")
-						self.invitations.put(ip)
+						invitations.add(ip)
 					conn.close()
 				except socket.timeout:
 					continue
@@ -36,39 +43,40 @@ class InvitationListener:
 
 		self.thread = threading.Thread(target=listener)
 		self.thread.start()
+
+		time.sleep(0.1)  # Allow the thread to start before continuing
 
 	def stop(self):
 		self.stop_event.set()
 		self.thread.join()
 		print("Invitation listener stopped")
 
-	def get_invitations(self):
-		invitations = []
-		while not self.invitations.empty():
-			invitations.append(self.invitations.get())
-		return invitations
-
-class InvitationResponseHandler:
-	def __init__(self, port=33334):
+class InvitationResponseListener:
+	def __init__(self, port=net.INVITATION_RESPONSE_PORT):
 		self.port = port
 		self.stop_event = threading.Event()
-		self.open_invitations = {}
+		self.thread = None
 
 	def start(self):
+		if self.thread is not None:
+			print("Invitation response listener already started")
+			return
 		def listener():
+			print(f"Starting invitation response listener at {net.get_own_ip()}:{self.port}")
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.bind(("0.0.0.0", self.port))
 			s.listen(5)
 			s.settimeout(0.1)
-			print(f"Started invitation response listener at {get_own_ip()}:{self.port}")
 			while not self.stop_event.is_set():
 				try:
 					conn, addr = s.accept()
 					ip = addr[0]
-					response = conn.recv(1024).decode()
-					if response in ["ACCEPT", "DECLINE"]:
-						print(f"{ip} {response.lower()}ed the invitation")
-						self.handle_response(ip, response)
+					if ip in open_invitations:
+						response = conn.recv(1024).decode()
+						if response == "ACCEPT":
+							self.handle_accept(ip)
+						elif response == "DECLINE":
+							self.handle_decline(ip)
 					conn.close()
 				except socket.timeout:
 					continue
@@ -77,61 +85,54 @@ class InvitationResponseHandler:
 		self.thread = threading.Thread(target=listener)
 		self.thread.start()
 
+		time.sleep(0.1)  # Allow the thread to start before continuing
+
 	def stop(self):
 		self.stop_event.set()
 		self.thread.join()
 		print("Invitation response listener stopped")
+	
+	def handle_accept(self, ip):
+		print(f"Invitation to {ip} was accepted")
+		
+		open_invitations.remove(ip)
+		create_update_connection(ip)
+	
+	def handle_decline(self, ip):
+		print(f"Invitation to {ip} was declined")
 
-	def add_invitation(self, ip):
-		if ip not in self.open_invitations:
-			self.open_invitations[ip] = threading.Event()
+		open_invitations.remove(ip)
 
-	def handle_response(self, ip, response):
-		if ip in self.open_invitations:
-			if response == "ACCEPT":
-				self.open_invitations[ip].set()
-			elif response == "DECLINE":
-				del self.open_invitations[ip]
+#TODO Rework updating system, which includes creating update connection
+def create_update_connection(ip):
+	net.start_update_listener()
+	net.update_socket = net.create_update_socket(ip)
 
-	def wait_for_response(self, ip, timeout=10):
-		if ip in self.open_invitations:
-			event = self.open_invitations[ip]
-			accepted = event.wait(timeout)
-			if accepted:
-				print(f"Invitation to {ip} was accepted")
-				return True
-			else:
-				print(f"Invitation to {ip} timed out or was declined")
-				return False
-		return False
+def send_invitation(ip):
+	print(f"Sending invitation to {ip}")
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((ip, net.INVITATION_PORT))
+	s.send("INVITE".encode())
+	s.close()
 
-# Usage example
-if __name__ == "__main__":
-	invitation_listener = InvitationListener()
-	invitation_listener.start()
+	open_invitations.add(ip)
 
-	response_handler = InvitationResponseHandler()
-	response_handler.start()
+def accept_invitation(ip):
+	print(f"Accepting invitation from {ip}")
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((ip, net.INVITATION_RESPONSE_PORT))
+	s.send("ACCEPT".encode())
+	s.close()
 
-	def simulate_invitations():
-		ips = ["192.168.1.100", "192.168.1.101", "192.168.1.102"]
-		for ip in ips:
-			print(f"Simulating invitation from {ip}")
-			response_handler.add_invitation(ip)
-			time.sleep(2)
+	invitations.remove(ip)
+	if ip != net.get_own_ip():  # Only one connection needed in singleplayer
+		create_update_connection(ip)
 
-	invitation_simulator = threading.Thread(target=simulate_invitations)
-	invitation_simulator.start()
+def decline_invitation(ip):
+	print(f"Declining invitation from {ip}")
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((ip, net.INVITATION_RESPONSE_PORT))
+	s.send("DECLINE".encode())
+	s.close()
 
-	try:
-		while True:
-			new_invitations = invitation_listener.get_invitations()
-			print(invitation_listener.invitations.queue)
-			print(response_handler.open_invitations)
-			for ip in new_invitations:
-				response_handler.add_invitation(ip)
-			time.sleep(1)
-	except KeyboardInterrupt:
-		invitation_listener.stop()
-		response_handler.stop()
-		invitation_simulator.join()
+	invitations.remove(ip)

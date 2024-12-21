@@ -1,14 +1,19 @@
 
 import scripts.networking as net
 import scripts.session as session
+import scripts.invitations as inv
 
 def start():
 
-    net.start_invitation_listener()
+    inv_listener = inv.InvitationListener()
+    inv_listener.start()
+
+    inv_res_handler = inv.InvitationResponseListener()
+    inv_res_handler.start()
 
     while True:
 
-        if net.current_opponent:
+        if net.update_socket is not None:
             session.start_game()
 
         query = input("> ")
@@ -16,7 +21,8 @@ def start():
             continue
         match(query.split()[0]):
             case "exit":
-                net.stop_listeners()
+                inv_listener.stop()
+                inv_res_handler.stop()
                 exit()
 
             case "clear":
@@ -27,16 +33,18 @@ def start():
 
             case "invite":
                 ip = query.split()[1]
-                net.send_invitation(ip)
+                inv.send_invitation(ip)
 
-            case "invitation":
-                net.get_current_invitation()
+            case "invitations":
+                print(inv.invitations)
 
             case "accept":
-                net.accept_invitation()
+                ip = query.split()[1]
+                inv.accept_invitation(ip)
 
             case "decline":
-                net.decline_invitation()
+                ip = query.split()[1]
+                inv.decline_invitation(ip)
 
             case _:
                 print("Unknown command")
